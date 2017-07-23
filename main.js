@@ -5,7 +5,7 @@ $( document ).ready(function() {
         {"from":"Jul 18, 2017 11:22:00 PM","to":"Jul 19, 2017 6:40:00 AM"},
         {"from":"Jul 19, 2017 10:33:00 PM","to":"Jul 20, 2017 6:54:00 AM"}
     ]
-    render_chart(mapData(data));
+    render_chart("#chart1", mapData(data));
 });
 
 const splitON = 17
@@ -41,118 +41,71 @@ function getDate(date) {
     return result
 }
 
-function render_chart(data){
-    console.log(data)
-    var stack = d3.layout.stack();
-    const color = "#3498db"
-
-    xGroupMax = d3.max(data, function(d) { return d.day; })
-    xGroupMin = d3.min(data, function(d) { return d.day; })
-
-    
-
-    const rangeX = [xGroupMin, xGroupMax]
-    
-    console.log(rangeX)
-    console.log(rangeY)
-
-    var margin = {top: 50, right: 50, bottom: 50, left: 100},
-        width = 900 - margin.left - margin.right,
-        height = 500 - margin.top - margin.bottom;
+function getWeekDay(date) {
+    let result = new Date(date)
+    switch (result.getDay()) {
+        case 0: return 'Mo'
+        case 1: return 'Di'
+        case 2: return 'Mi'
+        case 3: return 'Do'
+        case 4: return 'Fr'
+        case 5: return 'Sa'
+        case 6: return 'So'
+    }
+    return ""
+}
 
 
-    var x = d3.scale.ordinal()
-        .domain(rangeX)
-        .range([0, width])
 
-    var y = d3.time.scale()
-        .domain(rangeY)
-        .range([height, 0]);
+function render_chart(container, data){
+    var width = 700,
+            height = 400,
+            padding = 100;
+            
+        // create an svg container
+        var vis = d3.select(container).
+            append("svg:svg")
+                .attr("width", width)
+                .attr("height", height);
+                
+        // define the y scale  (vertical)
+        var yScale = d3.time.scale()
+	        .domain(rangeY)    // values between 0 and 100
+		.range([height - padding, padding]);   // map these to the chart height, less padding.  
+                 //REMEMBER: y axis range has the bigger number first because the y value of zero is at the top of chart and increases as you go down.
+            
+        let rangeX = [d3.min(data, function(d) { return d.day; }), d3.max(data, function(d) { return d.day; })]
 
-    var xAxis = d3.svg.axis()
-        .scale(x)
-        .tickSize(5)
-        .tickPadding(6)
-        .orient("bottom");
 
-    var yAxis = d3.svg.axis()
-        .scale(y)
-        .orient("left")
-        .tickFormat(function(d) { return d.getHours() + ' Uhr' })
-
-    var svg = d3.select("#chart1").append("svg")
-        .attr("width", width + margin.left + margin.right)
-        .attr("height", height + margin.top + margin.bottom)
-        .append("g")
-        .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
-
-    var rect = svg.selectAll("rect")
-        .data(data)
-        .enter().append("rect")
-        .transition()
-        .duration(500)
-        .delay(function(d, i) { return i * 10; })
-        .attr("x", function(d, i, j) { return x(d.day) + x.rangeBand()* j; })
-        .attr("width", x.rangeBand())
-        .transition()
-        .attr("y", function(d) { return y(d.to); })
-        .attr("height", function(d) { console.log(y(d.to-d.from)); return y(d.from) - y(d.to)})
-        .attr("class","bar")
-        .style("fill",function(d){return color})
-
-        svg.append("g")
-            .attr("class", "x axis")
-            .attr("transform", "translate(0," + height + ")")
-            .call(xAxis);
-
-        svg.select("g")
-            .attr("class", "y axis")
+            
+        var xScale = d3.time.scale()
+	        .domain(rangeX)    // values between for month of january
+		.range([padding, width - padding * 2]);   // map these the the chart width = total width minus padding at both sides
+		    
+	
+        // define the y axis
+        var yAxis = d3.svg.axis()
+            .orient("left")
+            .tickFormat(function(d) { return d.getHours() + ' Uhr' })
+            .scale(yScale);
+        
+        // define the y axis
+        var xAxis = d3.svg.axis()
+            .orient("bottom")
+            .tickFormat(function(d) { return getWeekDay(d) + ' ' + d.getDate() + "." + d.getMonth() })
+            .ticks(5)
+            .scale(xScale);
+            
+        // draw y axis with labels and move in from the size by the amount of padding
+        vis.append("g")
+            .attr("class", "yaxis axis") 
+            .attr("transform", "translate("+padding+",0)")
             .call(yAxis);
 
-        svg.append("text")
-        .attr("x", width/3)
-        .attr("y", 0)
-        .attr("dx", ".71em")
-        .attr("dy", "-.71em")
-        .text("Min - Max Temperature (Month wise)");
-
-    // add legend
-    var legend = svg.append("g")
-      .attr("class", "legend")
-
-    legend.selectAll('text')
-      .data([color])
-      .enter()
-      .append("rect")
-      .attr("x", width-margin.right)
-      .attr("y", function(d, i){ return i *  20;})
-      .attr("width", 10)
-      .attr("height", 10)
-      .style("fill", function(d) {
-        return "A";
-      })
-
-    legend.selectAll('text')
-      .data(['Schlaf'])
-      .enter()
-    .append("text")
-    .attr("x", width-margin.right + 25)
-    .attr("y", function(d, i){ return i *  20 + 9;})
-    .text(function(d){return d});
-
-    var tooltip = d3.select("body")
-    .append('div')
-    .attr('class', 'tooltip');
-
-    tooltip.append('div')
-    .attr('class', 'day');
-    tooltip.append('div')
-    .attr('class', 'tempRange');
-
-    svg.selectAll("rect")
-    .on('mouseout', function() {
-        tooltip.style('display', 'none');
-        tooltip.style('opacity',0);
-    });
+        // draw x axis with labels and move to the bottom of the chart area
+        vis.append("g")
+            .attr("class", "xaxis axis")   // give it a class so it can be used to select only xaxis labels  below
+            .attr("transform", "translate(0," + (height - padding) + ")")
+            .call(xAxis);    
 
 }
